@@ -1,43 +1,52 @@
 #include <pybind11/pybind11.h>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include<iostream>
 
-#define STRINGIFY(x) #x
-#define MACRO_STRINGIFY(x) STRINGIFY(x)
-
-int add(int i, int j) {
-    return i + j;
-}
+#include <typeinfo>
 
 namespace py = pybind11;
 
+class WikiGraph {
+    private:
+    std::unordered_map<std::string, std::string> redirects;
+    std::unordered_map<std::string, std::set<std::string>> articles;
+
+    public:
+    void addRedirect(std::string startLink, std::string redirectLink) {
+        redirects.emplace(startLink, redirectLink);
+    }
+
+    void addArticle(std::string articleName, py::list hyperlinkedArticles) {
+        std::set<std::string> articleLinks;
+
+        for(auto it = hyperlinkedArticles.begin(); it != hyperlinkedArticles.end(); it++) {
+            articleLinks.emplace(it->cast<std::string>());
+        }
+
+        articles.emplace(articleName, articleLinks);
+    }
+
+    void test() {
+        for (auto it = articles.begin(); it != articles.end(); it++) {
+            std::cout << it->first << ":" << std::endl;
+
+            std::set<std::string> hyperlinks = it->second;
+            for (auto it = hyperlinks.begin(); it != hyperlinks.end(); it++) {
+                std::cout << "--" << *it << std::endl;
+            }
+        }
+        for (auto it = redirects.begin(); it != redirects.end(); it++) {
+            std::cout << it->first << " redirects to: " << it->second << std::endl;
+        }
+    }
+};
+
 PYBIND11_MODULE(_core, m) {
-    m.doc() = R"pbdoc(
-        Pybind11 example plugin
-        -----------------------
-
-        .. currentmodule:: cpp_build_example
-
-        .. autosummary::
-           :toctree: _generate
-
-           add
-           subtract
-    )pbdoc";
-
-    m.def("add", &add, R"pbdoc(
-        Add two numbers
-
-        Some other explanation about the add function.
-    )pbdoc");
-
-    m.def("subtract", [](int i, int j) { return i - j; }, R"pbdoc(
-        Subtract two numbers
-
-        Some other explanation about the subtract function.
-    )pbdoc");
-
-#ifdef VERSION_INFO
-    m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
-#else
-    m.attr("__version__") = "dev";
-#endif
+    py::class_<WikiGraph>(m, "WikiGraph")
+        .def(py::init<>())
+        .def("add_redirect", &WikiGraph::addRedirect)
+        .def("add_article", &WikiGraph::addArticle)
+        .def("test", &WikiGraph::test);
 }
